@@ -1,6 +1,6 @@
 // Executive Dashboard Logic - Klongkhlung Ratsadon Rangsan School
 
-const SPREADSHEET_URL = window.location.protocol === 'file:' ? 'http://localhost:8000/api/data' : '/api/data';
+const SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/16v1WEk06Mr3diBCtwpVFHUZqM1LbNYKr739BeCbF6mI/gviz/tq";
 
 // State Management
 let rawProjects = [];
@@ -89,6 +89,7 @@ const formProjectProgress = document.getElementById("form-project-progress");
 const formProgressVal = document.getElementById("form-progress-val");
 const formProjectStatus = document.getElementById("form-project-status");
 const btnModalSubmit = document.getElementById("btn-modal-submit");
+const formSyncUrl = document.getElementById("form-sync-url");
 
 // Helper: Parse CSV
 function parseCSV(text) {
@@ -153,46 +154,65 @@ function isDarkMode() {
   return document.documentElement.classList.contains("dark");
 }
 
-// Fetch Google Sheets Data
+// // Fetch Google Sheets Data via JSONP
 async function loadData() {
   setLoadingState(true);
   try {
-    const separator = SPREADSHEET_URL.includes('?') ? '&' : '?';
-    const urlWithCacheBuster = `${SPREADSHEET_URL}${separator}t=${Date.now()}`;
-    const response = await fetch(urlWithCacheBuster);
+    // Define the global JSONP response callback
+    window.handleGVizResponse = function(response) {
+      try {
+        processGVizData(response);
+        mergeLocalProjects();
+        updateUI();
+        setSyncTime(true);
+      } catch (err) {
+        console.error("Error processing visualization response:", err);
+        syncText.textContent = "เกิดข้อผิดพลาดในการประมวลผลข้อมูล";
+        setLoadingState(false);
+      }
+    };
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // Clear old script if it exists
+    const oldScript = document.getElementById("gviz-script");
+    if (oldScript) {
+      oldScript.remove();
     }
     
-    const csvText = await response.text();
-    const rows = parseCSV(csvText);
+    // Create new script tag to trigger JSONP request
+    const script = document.createElement("script");
+    script.id = "gviz-script";
+    script.src = `${SPREADSHEET_URL}?tqx=responseHandler:handleGVizResponse&t=${Date.now()}`;
+    script.onerror = function() {
+      console.error("Failed to load script from Google Sheets");
+      syncText.textContent = "เชื่อมต่อ Google Sheets ล้มเหลว";
+      setLoadingState(false);
+    };
     
-    if (rows.length < 2) {
-      throw new Error("No data rows found in the CSV");
-    }
-    
-    processProjectsData(rows);
-    updateUI();
-    setSyncTime(true);
+    document.body.appendChild(script);
     
   } catch (error) {
     console.error("Error loading dashboard data:", error);
-    syncText.textContent = "เกิดข้อผิดพลาดในการโหลดข้อมูล";
+    syncText.textContent = "เกิดข้อผิดพลาดในการเชื่อมต่อ";
     setLoadingState(false);
   }
 }
 
-// Parse Google Sheet rows into javascript objects
-function processProjectsData(rows) {
-  const headers = rows[0];
+// Parse Google Sheet GViz JSON response into javascript objects
+function processGVizData(response) {
+  if (!response || response.status !== 'ok') {
+    throw new Error('Google Visualization API returned error status: ' + (response ? response.status : 'null'));
+  }
   
-  // Helper to dynamically find header index to make columns robust to shuffling
+  const table = response.table;
+  const cols = table.cols;
+  const rows = table.rows;
+  
+  // Find column indices dynamically
   const getIndex = (keywords, defaultIdx) => {
-    const idx = headers.findIndex(h => keywords.some(k => h.toLowerCase().includes(k.toLowerCase())));
+    const idx = cols.findIndex(c => c.label && keywords.some(k => c.label.toLowerCase().includes(k.toLowerCase())));
     return idx !== -1 ? idx : defaultIdx;
   };
-
+  
   const idxId = getIndex(["รหัส"], 0);
   const idxName = getIndex(["ชื่อ"], 1);
   const idxManager = getIndex(["ผู้รับผิดชอบ"], 2);
@@ -202,33 +222,35 @@ function processProjectsData(rows) {
   const idxRemaining = getIndex(["คงเหลือ"], 6);
   const idxProgress = getIndex(["ความคืบหน้า"], 7);
   const idxStatus = getIndex(["สถานะ"], 8);
-
+  
   rawProjects = [];
   const deptsSet = new Set();
-
-  for (let i = 1; i < rows.length; i++) {
+  
+  for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    if (row.length < headers.length) continue; // skip broken rows
+    if (!row || !row.c) continue;
     
-    const id = row[idxId];
-    const name = row[idxName];
-    if (!name) continue; // skip rows without name
+    // Helper to get cell value
+    const getVal = (idx) => {
+      if (idx >= row.c.length || !row.c[idx]) return null;
+      return row.c[idx].v;
+    };
     
-    const manager = row[idxManager] || "ไม่ระบุ";
-    const dept = row[idxDept] || "อื่นๆ";
+    // Format values
+    const id = String(getVal(idxId) !== null ? getVal(idxId) : '').split('.')[0].trim();
+    const name = String(getVal(idxName) || '').trim();
+    if (!name) continue;
+    
+    const manager = String(getVal(idxManager) || 'ไม่ระบุ').trim();
+    const dept = String(getVal(idxDept) || 'อื่นๆ').trim();
     deptsSet.add(dept);
     
-    const budget = parseNumber(row[idxBudget]);
-    const spent = parseNumber(row[idxSpent]);
+    const budget = Number(getVal(idxBudget) || 0);
+    const spent = Number(getVal(idxSpent) || 0);
     
-    // If remaining field is empty, compute it, else parse
-    let remaining = row[idxRemaining] ? parseNumber(row[idxRemaining]) : (budget - spent);
-    if (!row[idxRemaining]) {
-      remaining = budget - spent;
-    }
-    
-    const progress = parseNumber(row[idxProgress]);
-    const status = row[idxStatus] || "ยังไม่ดำเนินการ";
+    let remaining = getVal(idxRemaining) !== null ? Number(getVal(idxRemaining)) : (budget - spent);
+    const progress = Number(getVal(idxProgress) || 0);
+    const status = String(getVal(idxStatus) || 'ยังไม่ดำเนินการ').trim();
     
     rawProjects.push({
       id,
@@ -244,9 +266,28 @@ function processProjectsData(rows) {
   }
   
   departmentsList = Array.from(deptsSet).sort();
-  
-  // Initialize dynamic department filter
   populateDeptFilter();
+}
+
+// Read and merge locally added projects from browser localStorage
+function mergeLocalProjects() {
+  const localList = JSON.parse(localStorage.getItem('local_projects') || '[]');
+  
+  // Track existing IDs to avoid duplicate rows
+  const existingIds = new Set(rawProjects.map(p => p.id));
+  
+  localList.forEach(p => {
+    if (!existingIds.has(p.id)) {
+      rawProjects.push(p);
+      
+      // Add local department to options list if not already present
+      if (!departmentsList.includes(p.dept)) {
+        departmentsList.push(p.dept);
+        departmentsList.sort();
+        populateDeptFilter();
+      }
+    }
+  });
 }
 
 function populateDeptFilter() {
@@ -524,6 +565,10 @@ function openAddProjectModal() {
   formProjectProgress.value = 0;
   formProgressVal.textContent = "0%";
   formProjectStatus.value = "ยังไม่ดำเนินการ";
+  
+  // Pre-populate saved Google Apps Script Sync URL
+  const savedSyncUrl = localStorage.getItem("sync_url") || "";
+  formSyncUrl.value = savedSyncUrl;
 
   modalOverlay.classList.add("active");
   addProjectModal.classList.add("active");
@@ -545,7 +590,8 @@ async function submitAddProjectForm(e) {
     budget: parseFloat(formProjectBudget.value) || 0,
     spent: parseFloat(formProjectSpent.value) || 0,
     progress: parseInt(formProjectProgress.value) || 0,
-    status: formProjectStatus.value
+    status: formProjectStatus.value,
+    remaining: (parseFloat(formProjectBudget.value) || 0) - (parseFloat(formProjectSpent.value) || 0)
   };
 
   if (!projectData.name || !projectData.manager) {
@@ -556,34 +602,62 @@ async function submitAddProjectForm(e) {
   btnModalSubmit.disabled = true;
   btnModalSubmit.innerHTML = '<span>กำลังบันทึก...</span>';
 
-  const postUrl = window.location.protocol === 'file:' ? 'http://localhost:8000/api/add' : '/api/add';
+  const syncUrl = formSyncUrl.value.trim();
   
-  try {
-    const response = await fetch(postUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(projectData)
-    });
+  if (syncUrl) {
+    // Save URL for future convenience
+    localStorage.setItem("sync_url", syncUrl);
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    try {
+      // Direct write to Google Sheets via Apps Script Web App
+      const response = await fetch(syncUrl, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'text/plain' }, // Using text/plain avoids CORS preflight checks in older configurations
+        body: JSON.stringify(projectData)
+      });
+      
+      const result = await response.json();
+      if (result.status === 'success') {
+        closeAddProjectModal();
+        await loadData();
+      } else {
+        alert("เกิดข้อผิดพลาดในการบันทึกลงคลาวด์: " + result.message);
+      }
+    } catch (err) {
+      console.error("Error saving project to cloud:", err);
+      alert("ไม่สามารถซิงค์โครงการลง Google Sheet บนคลาวด์ได้ทันที (แต่บันทึกในเครื่องชั่วคราวแล้ว): " + err.message);
+      
+      // Fallback: save locally even if cloud post fails so they don't lose data
+      saveProjectLocally(projectData);
+    } finally {
+      btnModalSubmit.disabled = false;
+      btnModalSubmit.innerHTML = '<i data-lucide="save"></i><span>บันทึกโครงการ</span>';
+      if (window.lucide) lucide.createIcons();
     }
-    
-    const result = await response.json();
-    if (result.status === 'success') {
-      closeAddProjectModal();
-      await loadData();
-    } else {
-      alert("เกิดข้อผิดพลาดในการบันทึก: " + result.message);
-    }
-  } catch (err) {
-    console.error("Error saving project:", err);
-    alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์: " + err.message);
-  } finally {
+  } else {
+    // No Cloud Sync URL provided -> save inside browser's localStorage
+    saveProjectLocally(projectData);
     btnModalSubmit.disabled = false;
     btnModalSubmit.innerHTML = '<i data-lucide="save"></i><span>บันทึกโครงการ</span>';
     if (window.lucide) lucide.createIcons();
   }
+}
+
+function saveProjectLocally(project) {
+  const localList = JSON.parse(localStorage.getItem('local_projects') || '[]');
+  
+  // Prevent duplicate ID addition locally
+  const index = localList.findIndex(p => p.id === project.id);
+  if (index !== -1) {
+    localList[index] = project; // Overwrite
+  } else {
+    localList.push(project);
+  }
+  
+  localStorage.setItem('local_projects', JSON.stringify(localList));
+  closeAddProjectModal();
+  loadData();
 }
 
 // ECharts Chart Rendering
