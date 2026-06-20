@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบติดตามแผนงานและโครงการ โรงเรียนคลองขลุงราษฎร์รังสรรค์</title>
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="style.css">
+  <!-- Apache ECharts -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+
+  <div class="dashboard-container">
+    
+    <!-- Top Header -->
+    <header class="header">
+      <div class="header-title-container">
+        <div class="school-logo">
+          <img src="school_logo.jpg" alt="ค.ส." class="school-logo-img">
+        </div>
+        <div class="header-title">
+          <h1>โรงเรียนคลองขลุงราษฎร์รังสรรค์</h1>
+          <div class="header-subtitle">ระบบบริหารจัดการและติดตามโครงการสำหรับผู้บริหาร (ค.ส. Executive Dashboard)</div>
+        </div>
+      </div>
+      
+      <div class="header-controls">
+        <div class="sync-status">
+          <span class="sync-pulse"></span>
+          <span id="sync-text">กำลังโหลดข้อมูล...</span>
+        </div>
+        <button id="btn-refresh" class="btn btn-secondary" title="โหลดข้อมูลใหม่">
+          <i data-lucide="refresh-cw" id="refresh-icon"></i>
+          <span>รีเฟรชข้อมูล</span>
+        </button>
+        <button id="btn-theme" class="btn btn-secondary btn-icon" title="สลับโหมด มืด/สว่าง">
+          <i data-lucide="sun" id="theme-icon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- KPI Summary Row -->
+    <section class="kpi-grid">
+      
+      <!-- Total Projects Card -->
+      <div class="card kpi-card kpi-projects">
+        <div class="kpi-header">
+          <span>จำนวนโครงการทั้งหมด</span>
+          <i data-lucide="folder-kanban"></i>
+        </div>
+        <div class="kpi-value" id="kpi-total-projects">-</div>
+        <div class="kpi-subtext">
+          <span class="kpi-trend neutral">ข้อมูลปัจจุบัน</span>
+          <span>โครงการทั้งหมดในระบบ</span>
+        </div>
+      </div>
+
+      <!-- Total Budget Card -->
+      <div class="card kpi-card kpi-total-budget">
+        <div class="kpi-header">
+          <span>งบประมาณแผนงานรวม</span>
+          <i data-lucide="wallet"></i>
+        </div>
+        <div class="kpi-value" id="kpi-total-budget">-</div>
+        <div class="kpi-subtext">
+          <span>จากแผนปฏิบัติการประจำปี</span>
+        </div>
+      </div>
+
+      <!-- Total Spent Card -->
+      <div class="card kpi-card kpi-spent">
+        <div class="kpi-header">
+          <span>งบประมาณที่ใช้ไปแล้ว</span>
+          <i data-lucide="hand-coins"></i>
+        </div>
+        <div class="kpi-value" id="kpi-total-spent">-</div>
+        <div class="kpi-subtext" id="kpi-spent-sub">
+          <span class="kpi-trend positive">- %</span>
+          <span>ของงบประมาณทั้งหมด</span>
+        </div>
+      </div>
+
+      <!-- Total Remaining Card -->
+      <div class="card kpi-card kpi-remaining">
+        <div class="kpi-header">
+          <span>งบประมาณคงเหลือรวม</span>
+          <i data-lucide="circle-dollar-sign"></i>
+        </div>
+        <div class="kpi-value" id="kpi-total-remaining">-</div>
+        <div class="kpi-subtext" id="kpi-remaining-sub">
+          <span class="kpi-trend positive">- %</span>
+          <span>จากงบประมาณจัดสรร</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Project Status Overview Grid -->
+    <section class="status-overview-grid">
+      <!-- Completed -->
+      <div class="card status-counter-card status-completed">
+        <div class="status-counter-info">
+          <h4>ดำเนินการเสร็จสิ้น</h4>
+          <div class="status-counter-number" id="status-completed-count">-</div>
+        </div>
+        <div class="status-icon-box">
+          <i data-lucide="check-circle-2"></i>
+        </div>
+      </div>
+      <!-- In Progress -->
+      <div class="card status-counter-card status-in-progress">
+        <div class="status-counter-info">
+          <h4>อยู่ระหว่างดำเนินการ</h4>
+          <div class="status-counter-number" id="status-in-progress-count">-</div>
+        </div>
+        <div class="status-icon-box">
+          <i data-lucide="loader"></i>
+        </div>
+      </div>
+      <!-- Not Started -->
+      <div class="card status-counter-card status-not-started">
+        <div class="status-counter-info">
+          <h4>ยังไม่ดำเนินการ</h4>
+          <div class="status-counter-number" id="status-not-started-count">-</div>
+        </div>
+        <div class="status-icon-box">
+          <i data-lucide="circle-dashed"></i>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visualizations / Charts Gallery -->
+    <section class="charts-grid">
+      
+      <!-- Chart 1: Status Distribution -->
+      <div class="card chart-card">
+        <div class="chart-header">
+          <h3 class="chart-title">สัดส่วนสถานะโครงการ</h3>
+          <i data-lucide="pie-chart" class="text-muted" style="width: 18px;"></i>
+        </div>
+        <div class="chart-container" id="chart-status"></div>
+      </div>
+
+      <!-- Chart 2: Budget Allocation by Department -->
+      <div class="card chart-card">
+        <div class="chart-header">
+          <h3 class="chart-title">การเบิกจ่ายงบประมาณจำแนกตามกลุ่มงาน</h3>
+          <i data-lucide="bar-chart-3" class="text-muted" style="width: 18px;"></i>
+        </div>
+        <div class="chart-container" id="chart-department"></div>
+      </div>
+
+      <!-- Chart 3: Progress by Project -->
+      <div class="card chart-card" style="grid-column: 1 / -1; height: 420px;">
+        <div class="chart-header">
+          <h3 class="chart-title">ระดับความคืบหน้าของโครงการ (%)</h3>
+          <i data-lucide="trending-up" class="text-muted" style="width: 18px;"></i>
+        </div>
+        <div class="chart-container" id="chart-progress"></div>
+      </div>
+
+    </section>
+
+    <!-- Projects Table Section -->
+    <section class="card table-section">
+      
+      <!-- Toolbar with Search & Filters -->
+      <div class="table-toolbar">
+        <div class="search-container">
+          <i data-lucide="search" class="search-icon"></i>
+          <input type="text" id="search-input" class="search-input" placeholder="ค้นหาชื่อโครงการ, ผู้รับผิดชอบ...">
+        </div>
+        
+        <div class="filter-group">
+          <!-- Department Filter -->
+          <select id="filter-dept" class="filter-select">
+            <option value="all">ทุกกลุ่มงาน</option>
+            <!-- Generated dynamically -->
+          </select>
+          
+          <!-- Status Filter -->
+          <select id="filter-status" class="filter-select">
+            <option value="all">ทุกสถานะ</option>
+            <option value="ดำเนินการแล้ว">ดำเนินการเสร็จสิ้น</option>
+            <option value="อยู่ระหว่างดำเนินการ">อยู่ระหว่างดำเนินการ</option>
+            <option value="ยังไม่ดำเนินการ">ยังไม่ดำเนินการ</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Data Table -->
+      <div class="table-wrapper">
+        <table class="projects-table" id="projects-table">
+          <thead>
+            <tr>
+              <th style="width: 70px;">รหัส</th>
+              <th>ชื่อโครงการ</th>
+              <th>กลุ่มงาน</th>
+              <th style="text-align: right; width: 130px;">งบประมาณ</th>
+              <th style="text-align: right; width: 130px;">ใช้ไป</th>
+              <th style="text-align: right; width: 130px;">คงเหลือ</th>
+              <th class="progress-column">ความคืบหน้า</th>
+              <th style="width: 150px; text-align: center;">สถานะ</th>
+              <th style="width: 160px;">ผู้รับผิดชอบ</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <!-- Table rows dynamically populated -->
+            <tr>
+              <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                กำลังดาวน์โหลดข้อมูลโครงการ...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div class="pagination">
+        <div id="pagination-info">
+          แสดงรายการที่ 0-0 จากทั้งหมด 0 รายการ
+        </div>
+        <div class="pagination-controls">
+          <button id="btn-first" class="btn btn-secondary btn-icon" disabled>
+            <i data-lucide="chevrons-left"></i>
+          </button>
+          <button id="btn-prev" class="btn btn-secondary btn-icon" disabled>
+            <i data-lucide="chevron-left"></i>
+          </button>
+          <button id="btn-next" class="btn btn-secondary btn-icon" disabled>
+            <i data-lucide="chevron-right"></i>
+          </button>
+          <button id="btn-last" class="btn btn-secondary btn-icon" disabled>
+            <i data-lucide="chevrons-right"></i>
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- Slide-out Side Drawer for Project Details -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <aside class="drawer" id="project-drawer">
+    <div class="drawer-header">
+      <div class="drawer-title-container">
+        <span id="drawer-project-id">PROJECT ID</span>
+        <h3 class="drawer-title" id="drawer-project-name">ชื่อโครงการ</h3>
+      </div>
+      <button class="btn-close" id="drawer-close" title="ปิด">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    
+    <div class="drawer-content">
+      
+      <!-- Section: Overview -->
+      <div class="detail-section">
+        <h5>ข้อมูลทั่วไป</h5>
+        <div class="detail-card">
+          <div class="detail-row">
+            <div class="detail-row-label">กลุ่มงาน</div>
+            <div class="detail-row-value" id="drawer-project-dept">-</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-row-label">ผู้รับผิดชอบ</div>
+            <div class="detail-row-value" id="drawer-project-manager">-</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-row-label">สถานะโครงการ</div>
+            <div class="detail-row-value" id="drawer-project-status">-</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Progress -->
+      <div class="detail-section">
+        <h5>ความคืบหน้าโครงการ</h5>
+        <div class="detail-card detail-progress-large">
+          <div class="detail-progress-circle-wrapper">
+            <div class="progress-percent" id="drawer-progress-text" style="font-size: 1.5rem; text-align: left;">0%</div>
+            <div class="detail-progress-bar-large">
+              <div class="detail-progress-fill-large" id="drawer-progress-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Budget Analysis -->
+      <div class="detail-section">
+        <h5>วิเคราะห์งบประมาณ</h5>
+        <div class="detail-card">
+          <div class="detail-row">
+            <div class="detail-row-label">งบประมาณจัดสรร</div>
+            <div class="detail-row-value mono" id="drawer-budget-total">-</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-row-label">เบิกจ่ายไปแล้ว</div>
+            <div class="detail-row-value mono" id="drawer-budget-spent" style="color: var(--warning-text);">-</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-row-label">งบประมาณคงเหลือ</div>
+            <div class="detail-row-value mono" id="drawer-budget-remaining" style="color: var(--success-text);">-</div>
+          </div>
+          <div class="detail-row" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
+            <div class="detail-row-label">สัดส่วนเบิกจ่าย</div>
+            <div class="detail-row-value mono" id="drawer-budget-ratio">-</div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </aside>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
