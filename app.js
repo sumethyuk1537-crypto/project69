@@ -1,6 +1,6 @@
 // Executive Dashboard Logic - Klongkhlung Ratsadon Rangsan School
 
-const SPREADSHEET_URL = "/api/data";
+const SPREADSHEET_URL = window.location.protocol === 'file:' ? 'http://localhost:8000/api/data' : '/api/data';
 
 // State Management
 let rawProjects = [];
@@ -71,6 +71,24 @@ const drawerBudgetTotal = document.getElementById("drawer-budget-total");
 const drawerBudgetSpent = document.getElementById("drawer-budget-spent");
 const drawerBudgetRemaining = document.getElementById("drawer-budget-remaining");
 const drawerBudgetRatio = document.getElementById("drawer-budget-ratio");
+
+// Modal Elements
+const btnAddProject = document.getElementById("btn-add-project");
+const modalOverlay = document.getElementById("modal-overlay");
+const addProjectModal = document.getElementById("add-project-modal");
+const modalClose = document.getElementById("modal-close");
+const btnModalCancel = document.getElementById("btn-modal-cancel");
+const addProjectForm = document.getElementById("add-project-form");
+const formProjectId = document.getElementById("form-project-id");
+const formProjectName = document.getElementById("form-project-name");
+const formProjectManager = document.getElementById("form-project-manager");
+const formProjectDept = document.getElementById("form-project-dept");
+const formProjectBudget = document.getElementById("form-project-budget");
+const formProjectSpent = document.getElementById("form-project-spent");
+const formProjectProgress = document.getElementById("form-project-progress");
+const formProgressVal = document.getElementById("form-progress-val");
+const formProjectStatus = document.getElementById("form-project-status");
+const btnModalSubmit = document.getElementById("btn-modal-submit");
 
 // Helper: Parse CSV
 function parseCSV(text) {
@@ -491,6 +509,83 @@ function closeProjectDetails() {
   document.querySelectorAll("#table-body tr").forEach(row => row.classList.remove("selected"));
 }
 
+function openAddProjectModal() {
+  // Auto-calculate next ID
+  const ids = rawProjects.map(p => parseInt(p.id)).filter(id => !isNaN(id));
+  const nextId = ids.length > 0 ? Math.max(...ids) + 1 : 1;
+  formProjectId.value = nextId;
+
+  // Reset form fields
+  formProjectName.value = "";
+  formProjectManager.value = "";
+  formProjectDept.value = "วิชาการ";
+  formProjectBudget.value = 0;
+  formProjectSpent.value = 0;
+  formProjectProgress.value = 0;
+  formProgressVal.textContent = "0%";
+  formProjectStatus.value = "ยังไม่ดำเนินการ";
+
+  modalOverlay.classList.add("active");
+  addProjectModal.classList.add("active");
+}
+
+function closeAddProjectModal() {
+  modalOverlay.classList.remove("active");
+  addProjectModal.classList.remove("active");
+}
+
+async function submitAddProjectForm(e) {
+  e.preventDefault();
+
+  const projectData = {
+    id: formProjectId.value.trim(),
+    name: formProjectName.value.trim(),
+    manager: formProjectManager.value.trim(),
+    dept: formProjectDept.value,
+    budget: parseFloat(formProjectBudget.value) || 0,
+    spent: parseFloat(formProjectSpent.value) || 0,
+    progress: parseInt(formProjectProgress.value) || 0,
+    status: formProjectStatus.value
+  };
+
+  if (!projectData.name || !projectData.manager) {
+    alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+    return;
+  }
+
+  btnModalSubmit.disabled = true;
+  btnModalSubmit.innerHTML = '<span>กำลังบันทึก...</span>';
+
+  const postUrl = window.location.protocol === 'file:' ? 'http://localhost:8000/api/add' : '/api/add';
+  
+  try {
+    const response = await fetch(postUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(projectData)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    if (result.status === 'success') {
+      closeAddProjectModal();
+      await loadData();
+    } else {
+      alert("เกิดข้อผิดพลาดในการบันทึก: " + result.message);
+    }
+  } catch (err) {
+    console.error("Error saving project:", err);
+    alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์: " + err.message);
+  } finally {
+    btnModalSubmit.disabled = false;
+    btnModalSubmit.innerHTML = '<i data-lucide="save"></i><span>บันทึกโครงการ</span>';
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
 // ECharts Chart Rendering
 function renderCharts() {
   const isDark = isDarkMode();
@@ -703,9 +798,26 @@ function renderCharts() {
 // Global Event Listeners
 function initEventListeners() {
   
+  // Add Project Button
+  btnAddProject.addEventListener("click", openAddProjectModal);
+
+  // Modal Close Buttons
+  modalClose.addEventListener("click", closeAddProjectModal);
+  btnModalCancel.addEventListener("click", closeAddProjectModal);
+  modalOverlay.addEventListener("click", closeAddProjectModal);
+
+  // Form Submit
+  addProjectForm.addEventListener("submit", submitAddProjectForm);
+
+  // Progress slider label update
+  formProjectProgress.addEventListener("input", (e) => {
+    formProgressVal.textContent = `${e.target.value}%`;
+  });
+
   // Refresh Button
   btnRefresh.addEventListener("click", () => {
     closeProjectDetails();
+    closeAddProjectModal();
     loadData();
   });
   
@@ -746,10 +858,11 @@ function initEventListeners() {
   drawerClose.addEventListener("click", closeProjectDetails);
   drawerOverlay.addEventListener("click", closeProjectDetails);
   
-  // Escape key closes drawer
+  // Escape key closes drawer and modal
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       closeProjectDetails();
+      closeAddProjectModal();
     }
   });
   

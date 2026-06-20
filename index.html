@@ -32,6 +32,10 @@
           <span class="sync-pulse"></span>
           <span id="sync-text">กำลังโหลดข้อมูล...</span>
         </div>
+        <button id="btn-add-project" class="btn btn-primary" title="เพิ่มโครงการใหม่">
+          <i data-lucide="plus"></i>
+          <span>เพิ่มโครงการ</span>
+        </button>
         <button id="btn-refresh" class="btn btn-secondary" title="โหลดข้อมูลใหม่">
           <i data-lucide="refresh-cw" id="refresh-icon"></i>
           <span>รีเฟรชข้อมูล</span>
@@ -317,6 +321,83 @@
   </aside>
 
   <!-- Application Logic -->
+  <!-- Modal Dialog for Adding Project -->
+  <div class="drawer-overlay" id="modal-overlay"></div>
+  <div class="modal" id="add-project-modal">
+    <div class="modal-header">
+      <h3 class="modal-title">เพิ่มโครงการใหม่</h3>
+      <button class="btn-close" id="modal-close" title="ปิด">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <form id="add-project-form" class="modal-content">
+      <div class="form-grid">
+        
+        <div class="form-group">
+          <label for="form-project-id">รหัสโครงการ</label>
+          <input type="text" id="form-project-id" required placeholder="ระบุรหัสโครงการ (เช่น 8)">
+        </div>
+
+        <div class="form-group">
+          <label for="form-project-name">ชื่อโครงการ</label>
+          <input type="text" id="form-project-name" required placeholder="ระบุชื่อโครงการ">
+        </div>
+
+        <div class="form-group">
+          <label for="form-project-manager">ผู้รับผิดชอบ</label>
+          <input type="text" id="form-project-manager" required placeholder="ระบุชื่อผู้รับผิดชอบ">
+        </div>
+
+        <div class="form-group">
+          <label for="form-project-dept">กลุ่มงาน</label>
+          <select id="form-project-dept" required>
+            <option value="วิชาการ">วิชาการ</option>
+            <option value="วิทยาศาสตร์และเทคโนโลยี">วิทยาศาสตร์และเทคโนโลยี</option>
+            <option value="สังคมศึกษา">สังคมศึกษา</option>
+            <option value="งบประมาณและสินทรัพย์">งบประมาณและสินทรัพย์</option>
+            <option value="อื่นๆ">อื่นๆ</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="form-project-budget">งบประมาณจัดสรร (บาท)</label>
+          <input type="number" id="form-project-budget" required min="0" value="0">
+        </div>
+
+        <div class="form-group">
+          <label for="form-project-spent">งบประมาณที่ใช้ไป (บาท)</label>
+          <input type="number" id="form-project-spent" min="0" value="0">
+        </div>
+
+        <div class="form-group">
+          <label for="form-project-progress">ความคืบหน้า (%)</label>
+          <div class="range-wrapper">
+            <input type="range" id="form-project-progress" min="0" max="100" value="0">
+            <span id="form-progress-val">0%</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="form-project-status">สถานะโครงการ</label>
+          <select id="form-project-status" required>
+            <option value="ยังไม่ดำเนินการ">ยังไม่ดำเนินการ</option>
+            <option value="อยู่ระหว่างดำเนินการ">อยู่ระหว่างดำเนินการ</option>
+            <option value="ดำเนินการแล้ว">ดำเนินการเสร็จสิ้น</option>
+          </select>
+        </div>
+
+      </div>
+      
+      <div class="form-actions">
+        <button type="button" id="btn-modal-cancel" class="btn btn-secondary">ยกเลิก</button>
+        <button type="submit" id="btn-modal-submit" class="btn btn-primary">
+          <i data-lucide="save"></i>
+          <span>บันทึกโครงการ</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
